@@ -2,6 +2,6 @@ import { Router } from "express";
 import { register } from "./controller/auth";
 let router = Router();
 
-router.get("/auth", register);
+router.get("/register", register);
 
 export default router;
