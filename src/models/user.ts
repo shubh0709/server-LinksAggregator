@@ -1,7 +1,21 @@
-import { Schema, model } from "mongoose";
+import { Schema, model, Document } from "mongoose";
 import crypto from "crypto";
 
-const userSchema = new Schema(
+interface IUser extends Document {
+  username: string;
+  name: string;
+  email: string;
+  hashed_password: string;
+  salt: string;
+  role: string;
+  resetPasswordLink: string;
+  authenticate(plainText: string): boolean;
+  encryptPassword(password: string): string;
+  makeSalt(): string;
+  password: string; // virtual field
+}
+
+const userSchema = new Schema<IUser>(
   {
     username: {
       type: String,
@@ -34,36 +48,18 @@ const userSchema = new Schema(
       type: String,
       default: "subscriber",
     },
-    resetPasswordLink: {
-      data: String,
-      default: "",
-    },
+    resetPasswordLink: String,
   },
-  { timestamps: true }
+  { toJSON: { virtuals: true }, timestamps: true }
 );
-
-// virtual fields
-userSchema
-  .virtual("password")
-  .set(function (password) {
-    // create temp variable called _password
-    this._password = password;
-    // generate salt
-    this.salt = this.makeSalt();
-    // encrypt password
-    this.hashed_password = this.encryptPassword(password);
-  })
-  .get(function () {
-    return this._password;
-  });
 
 // methods > authenticate, encryptPassword, makeSalt
 userSchema.methods = {
-  authenticate: function (plainText: String) {
+  authenticate: function (plainText: string) {
     return this.encryptPassword(plainText) === this.hashed_password;
   },
 
-  encryptPassword: function (password) {
+  encryptPassword: function (password: string) {
     if (!password) return "";
     try {
       return crypto
@@ -76,9 +72,23 @@ userSchema.methods = {
   },
 
   makeSalt: function () {
-    return Math.round(new Date().valueOf() * Math.random()) + "";
+    return Math.random().toString(36).slice(2);
   },
 };
-// export user model
 
-export default model("User", userSchema);
+// virtual fields
+userSchema
+  .virtual<IUser>("password")
+  .get(function (this: IUser & { _password: string }) {
+    return this._password;
+  })
+  .set(function (this: IUser & { _password: string }, password) {
+    // create temp variable called _password
+    this._password = password;
+    // generate salt
+    this.salt = this.makeSalt();
+    // encrypt password
+    this.hashed_password = this.encryptPassword(password);
+  });
+
+export const userModel = model<IUser>("User", userSchema);
