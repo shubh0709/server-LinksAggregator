@@ -1,7 +1,7 @@
 import { Schema, model, Document } from "mongoose";
 import crypto from "crypto";
 
-interface IUser extends Document {
+export interface IUser extends Document {
   username: string;
   name: string;
   email: string;

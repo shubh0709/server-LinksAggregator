@@ -1,10 +1,11 @@
 import { Request, Response } from "express";
 import AWS from "aws-sdk";
 import { userModel } from "../models/user";
-import jwt from "jsonwebtoken";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import { Error } from "mongoose";
 import { constructEmailParams } from "../utils/email";
 import shortId from "shortid";
+import { CustomError } from "../utils/errors";
 
 AWS.config.update({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -60,7 +61,7 @@ export const register = (req: Request, res: Response) => {
 export const registerationToken = async (req: Request, res: Response) => {
   console.log("registeration token function hit");
   const { token } = req.body;
-  jwt.verify(token, process.env.JWT_ACCOUNT_ACTIVATION!, (error) => {
+  jwt.verify(token, process.env.JWT_ACCOUNT_ACTIVATION!, (error:any) => {
     if (error) {
       console.log("JWT VERIFY IN ACCOUNT ACTIVATION ERROR", error);
       return res.status(401).json({
@@ -71,7 +72,7 @@ export const registerationToken = async (req: Request, res: Response) => {
 
   console.log("decoding token");
 
-  const { name, email, password } = jwt.decode(token);
+  const { name, email, password } = jwt.decode(token) as JwtPayload;
   console.log({ name, email, password });
   const username = shortId.generate();
 
@@ -87,5 +88,54 @@ export const registerationToken = async (req: Request, res: Response) => {
     return res.status(401).json({
       error: `Error saving user in database. Try later \n ${error}`,
     });
+  }
+};
+
+const userExists = async (email: string) => {
+  try {
+    const user = await userModel.findOne({ email }).exec();
+    if (!user) {
+      throw new CustomError(
+        "User with that email does not exist. Please register.",
+        400
+      );
+    }
+
+    return user;
+  } catch (error) {
+    throw new CustomError(
+      "An error occurred while checking the email availability",
+      500,
+      error
+    );
+  }
+};
+
+export const login = async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body;
+    const user = await userExists(email);
+
+    // authenticate
+    if (!user.authenticate(password)) {
+      throw new CustomError("Email and password do not match", 400);
+    }
+
+    // generate token and send to client
+    const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET!, {
+      expiresIn: "7d",
+    });
+    const { _id, name, role } = user;
+
+    return res.json({
+      token,
+      user: { _id, name, email, role },
+    });
+  } catch (error) {
+    if (error instanceof CustomError) {
+      res.status(error.statusCode).json({
+        msg: error.message,
+      });
+    }
   }
 };
