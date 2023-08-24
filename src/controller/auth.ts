@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request, Response, NextFunction } from "express";
 import AWS from "aws-sdk";
 import { userModel } from "../models/user";
 import jwt, { JwtPayload } from "jsonwebtoken";
@@ -6,6 +6,12 @@ import { Error } from "mongoose";
 import { constructEmailParams } from "../utils/email";
 import shortId from "shortid";
 import { CustomError } from "../utils/errors";
+import expressJwt, {
+  Params,
+  expressjwt,
+  Request as JwtRequest,
+} from "express-jwt";
+import { userExists } from "../utils/utils";
 
 AWS.config.update({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -61,7 +67,7 @@ export const register = (req: Request, res: Response) => {
 export const registerationToken = async (req: Request, res: Response) => {
   console.log("registeration token function hit");
   const { token } = req.body;
-  jwt.verify(token, process.env.JWT_ACCOUNT_ACTIVATION!, (error:any) => {
+  jwt.verify(token, process.env.JWT_ACCOUNT_ACTIVATION!, (error: any) => {
     if (error) {
       console.log("JWT VERIFY IN ACCOUNT ACTIVATION ERROR", error);
       return res.status(401).json({
@@ -91,30 +97,15 @@ export const registerationToken = async (req: Request, res: Response) => {
   }
 };
 
-const userExists = async (email: string) => {
-  try {
-    const user = await userModel.findOne({ email }).exec();
-    if (!user) {
-      throw new CustomError(
-        "User with that email does not exist. Please register.",
-        400
-      );
-    }
-
-    return user;
-  } catch (error) {
-    throw new CustomError(
-      "An error occurred while checking the email availability",
-      500,
-      error
-    );
-  }
-};
+export const validateSignIn = expressjwt({
+  secret: `${process.env.JWT_SECRET!}`,
+  algorithms: ["HS256"] as jwt.Algorithm[],
+} as Params);
 
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-    const user = await userExists(email);
+    const user = await userExists("email", email);
 
     // authenticate
     if (!user.authenticate(password)) {
@@ -134,6 +125,51 @@ export const login = async (req: Request, res: Response) => {
   } catch (error) {
     if (error instanceof CustomError) {
       res.status(error.statusCode).json({
+        msg: error.message,
+      });
+    }
+  }
+};
+
+export const shareUserData = (req: Request, res: Response) => {
+  req.profile.hashed_password = undefined;
+  req.profile.salt = undefined;
+  res.json(req.profile);
+};
+
+export const authMiddleware = async (
+  req: JwtRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    console.log("reached auth middleware");
+    const user = await userExists("_id", req.auth?._id);
+    req.profile = user;
+    next();
+  } catch (error) {
+    if (error instanceof CustomError) {
+      return res.status(error.statusCode).json({
+        msg: error.message,
+      });
+    }
+  }
+};
+
+export const validateAdmin = async (
+  req: JwtRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const user = await userExists("_id", req.auth?._id);
+    if (user.role !== "admin") {
+      throw new CustomError("Admin resource. Access denied.", 403);
+    }
+    next();
+  } catch (error) {
+    if (error instanceof CustomError) {
+      return res.status(error.statusCode).json({
         msg: error.message,
       });
     }

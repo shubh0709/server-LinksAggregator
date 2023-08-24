@@ -1,13 +1,13 @@
 import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
+dotenv.config({ debug: process.env.DEBUG === "true" });
 import router from "./route";
 import morgan from "morgan";
 import cors from "cors";
 import bodyParser from "body-parser";
 import mongoose from "mongoose";
 import audit, { Logger } from "express-requests-logger";
-
-dotenv.config({ debug: process.env.DEBUG === "true" });
+import { validateSignIn } from "./controller/auth";
 
 const app: Express = express();
 
@@ -16,8 +16,6 @@ mongoose
   .connect(process.env.DB_CONNECT!)
   .then(() => console.log("DB connected"))
   .catch((err) => console.log(err));
-
-console.log("client url: ", process.env.CLIENT_URL);
 
 //middlewares
 app.use(
