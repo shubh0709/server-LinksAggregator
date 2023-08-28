@@ -1,4 +1,4 @@
-import { query, check } from "express-validator";
+import { check } from "express-validator";
 
 export const registerationValidatorCondns = [
   check("name").notEmpty().escape().withMessage("Please provide name"),

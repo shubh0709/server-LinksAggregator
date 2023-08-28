@@ -5,18 +5,19 @@ import jwt, { JwtPayload } from "jsonwebtoken";
 import { Error } from "mongoose";
 import { constructEmailParams } from "../utils/email";
 import shortId from "shortid";
-import { CustomError } from "../utils/errors";
+import { CustomError, tryCatchHandler } from "../utils/errors";
 import expressJwt, {
   Params,
   expressjwt,
   Request as JwtRequest,
 } from "express-jwt";
 import { userExists } from "../utils/utils";
+import { withLogging } from "../middlewares/logger";
 
 AWS.config.update({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: "eu-north-1",
+  region: process.env.AWS_REGION,
 });
 
 const ses = new AWS.SES();
@@ -132,9 +133,14 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const shareUserData = (req: Request, res: Response) => {
+  try{
   req.profile.hashed_password = undefined;
   req.profile.salt = undefined;
   res.json(req.profile);
+  }
+  catch(error){
+    throw new CustomError("Error sharing user data", 500, error);
+  }
 };
 
 export const authMiddleware = async (
@@ -161,11 +167,15 @@ export const validateAdmin = async (
   res: Response,
   next: NextFunction
 ) => {
+  console.log("validating admin");
   try {
     const user = await userExists("_id", req.auth?._id);
+    console.log("returned user: ", JSON.stringify(user));
     if (user.role !== "admin") {
       throw new CustomError("Admin resource. Access denied.", 403);
     }
+    req.profile = user;
+    console.log("going to next function");
     next();
   } catch (error) {
     if (error instanceof CustomError) {

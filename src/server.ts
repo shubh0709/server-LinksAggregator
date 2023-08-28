@@ -1,6 +1,13 @@
 import express, { Express, Request, Response } from "express";
 import dotenv from "dotenv";
+
 dotenv.config({ debug: process.env.DEBUG === "true" });
+process.on("uncaughtException", (err) => {
+  console.log(err.name, err.message);
+  console.log("Uncaught Exception occured! Shutting down...");
+  process.exit(1);
+});
+
 import router from "./route";
 import morgan from "morgan";
 import cors from "cors";
@@ -8,6 +15,8 @@ import bodyParser from "body-parser";
 import mongoose from "mongoose";
 import audit, { Logger } from "express-requests-logger";
 import { validateSignIn } from "./controller/auth";
+import { CustomError } from "./utils/errors";
+import { globalErrorHandler } from "./middlewares/error";
 
 const app: Express = express();
 
@@ -15,7 +24,7 @@ const app: Express = express();
 mongoose
   .connect(process.env.DB_CONNECT!)
   .then(() => console.log("DB connected"))
-  .catch((err) => console.log(err));
+  .catch((err) => console.log("DB connection failed :", err));
 
 //middlewares
 app.use(
@@ -46,9 +55,27 @@ app.use(
 app.use(morgan("dev"));
 app.use(bodyParser.json());
 app.use("/app", router);
+app.all("*", (req: Request, res: Response, next) => {
+  const err = new CustomError(
+    `Can't find ${req.originalUrl} on the server!`,
+    404
+  );
+  next(err);
+});
+
+app.use(globalErrorHandler);
 
 let port = process.env.PORT || 8080;
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log("server started at port " + port);
+});
+
+process.on("unhandledRejection", (err: Error) => {
+  console.log(err.name, err.message);
+  console.log("Unhandled rejection occured! Shutting down...");
+
+  server.close(() => {
+    process.exit(1);
+  });
 });
