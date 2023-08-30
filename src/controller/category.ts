@@ -23,6 +23,7 @@ export const create = async (req: JwtRequest, res: Response) => {
     image.replace(/^data:image\/\w+;base64,/, ""),
     "base64"
   );
+
   const type = image.split(";")[0].split("/")[1];
   let category = new categoryModel({ name, content, slug });
 
@@ -30,7 +31,7 @@ export const create = async (req: JwtRequest, res: Response) => {
     Bucket: "link-aggregator",
     Key: `category/${uuid()}.${type}`,
     Body: base64Data,
-    ACL: "public-read",
+    // ACL: "public-read",
     ContentEncoding: "base64",
     ContentType: `image/${type}`,
   };

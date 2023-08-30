@@ -2,7 +2,7 @@ import { check } from "express-validator";
 
 export const categoryCreateValidatorCondns = [
   check("name").notEmpty().escape().withMessage("Please provide name"),
-  check("image").notEmpty().escape().withMessage("Please prvide image"),
+  check("image").notEmpty().withMessage("Please prvide image"),
   check("content")
     .escape()
     .isLength({ min: 20 })

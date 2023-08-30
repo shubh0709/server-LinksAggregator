@@ -133,12 +133,11 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const shareUserData = (req: Request, res: Response) => {
-  try{
-  req.profile.hashed_password = undefined;
-  req.profile.salt = undefined;
-  res.json(req.profile);
-  }
-  catch(error){
+  try {
+    req.profile.hashed_password = undefined;
+    req.profile.salt = undefined;
+    res.json(req.profile);
+  } catch (error) {
     throw new CustomError("Error sharing user data", 500, error);
   }
 };
@@ -175,7 +174,6 @@ export const validateAdmin = async (
       throw new CustomError("Admin resource. Access denied.", 403);
     }
     req.profile = user;
-    console.log("going to next function");
     next();
   } catch (error) {
     if (error instanceof CustomError) {
