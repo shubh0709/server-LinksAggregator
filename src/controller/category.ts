@@ -1,13 +1,14 @@
 import { categoryModel } from "../models/category";
 import slugify from "slugify";
 import { uuid } from "uuidv4";
-import aws, { S3 } from "aws-sdk";
+import aws, { AWSError, S3 } from "aws-sdk";
 import { Buffer } from "buffer";
 import fs from "fs";
 import { Request as JwtRequest } from "express-jwt";
 import { Response } from "express";
 import { CustomError } from "../utils/errors";
 import { withLogging } from "../middlewares/logger";
+import { linkModel } from "../models/links";
 
 const s3: S3 = new aws.S3({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -15,7 +16,7 @@ const s3: S3 = new aws.S3({
   region: process.env.AWS_S3_REGION,
 });
 
-export const create = async (req: JwtRequest, res: Response) => {
+export const createCategory = async (req: JwtRequest, res: Response) => {
   const { name, image, content } = req.body;
   const slug = slugify(name);
   // image data
@@ -56,7 +57,7 @@ export const create = async (req: JwtRequest, res: Response) => {
 
     try {
       await category.save();
-      console.log("registration success");
+      console.log("category created success");
       return res.json({
         message: "success",
       });
@@ -72,7 +73,7 @@ export const create = async (req: JwtRequest, res: Response) => {
   }
 };
 
-export const list = async (req: JwtRequest, res: Response) => {
+export const listAllCategories = async (req: JwtRequest, res: Response) => {
   try {
     const categories = await categoryModel.find({}).sort({ createdAt: -1 });
     res.json(categories);
@@ -82,6 +83,111 @@ export const list = async (req: JwtRequest, res: Response) => {
   }
 };
 
-export const read = async (req: JwtRequest, res: Response) => {};
+export const readCategory = async (req: JwtRequest, res: Response) => {
+  try {
+    const { slug } = req.params;
+    const category = categoryModel.findOne({ slug });
+    const data = await linkModel
+      .find({ categories: category })
+      .sort({ createdAt: -1 });
 
-export const remove = async (req: JwtRequest, res: Response) => {};
+    res.json(data);
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
+      error: "Cant read category",
+    });
+  }
+};
+
+export const removeCategory = async (req: JwtRequest, res: Response) => {
+  try {
+    const { id } = req.body;
+    await categoryModel.findOneAndRemove({ _id: id });
+  } catch (error) {
+    console.log(error);
+    res.status(400).json({
+      error: "category deletion failed",
+    });
+  }
+};
+
+export const updateCategory = async (req: JwtRequest, res: Response) => {
+  try {
+    const { slug } = req.params;
+    const { name, content, image } = req.body;
+    let updatedCategoryData;
+    const oldData = await categoryModel.findOne({ slug });
+    if (oldData) {
+      if (image) {
+        const base64Data: Buffer = Buffer.from(
+          image.replace(/^data:image\/\w+;base64,/, ""),
+          "base64"
+        );
+
+        const type = image.split(";")[0].split("/")[1];
+
+        // delete existing img
+        await new Promise<void>((resolve, reject) => {
+          s3.deleteObject(
+            { Bucket: "link-aggregator", Key: oldData.image.key },
+            (err: AWSError, data: S3.Types.DeleteObjectOutput) => {
+              if (err) {
+                console.log(err);
+                reject(new CustomError("Img deletion in s3 failed", 400, err));
+              }
+              resolve();
+            }
+          );
+        });
+
+
+
+        // uploading new img
+        const params = {
+          Bucket: "link-aggregator",
+          Key: `category/${uuid()}.${type}`,
+          Body: base64Data,
+          // ACL: "public-read",
+          ContentEncoding: "base64",
+          ContentType: `image/${type}`,
+        };
+
+        const data = await new Promise<S3.ManagedUpload.SendData>(
+          (resolve, reject) => {
+            s3.upload(params, (err: Error, data: S3.ManagedUpload.SendData) => {
+              if (err) {
+                console.log(err);
+                reject(new CustomError("Upload to s3 failed", 400, err));
+              }
+              resolve(data);
+            });
+          }
+        );
+
+        console.log("AWS UPLOAD RES DATA", JSON.stringify(data));
+        oldData.image.url = data.Location;
+        oldData.image.key = data.Key;
+      }
+
+        updatedCategoryData = categoryModel.updateOne(
+          { _id: oldData._id },
+          { name: oldData.name, content: oldData.content, image: oldData.image },
+          { new: true }
+        );
+    
+    } else {
+      throw new CustomError("category not found", 400);
+    }
+  } catch (error) {
+    if(error instanceof CustomError){
+      res.status(error.statusCode).json({
+        msg: error.message
+      });
+    }
+    console.log(error);
+    res.status(400).json({
+      error: "category deletion failed",
+    });
+  }
+};

@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 
 dotenv.config({ debug: process.env.DEBUG === "true" });
 process.on("uncaughtException", (err) => {
-  console.log(err.name, err.message);
+  console.log({ name: err.name, msg: err.message, stack: err.stack });
   console.log("Uncaught Exception occured! Shutting down...");
   process.exit(1);
 });

@@ -12,6 +12,7 @@ export const categoryCreateValidatorCondns = [
 export const categoryUpdateValidatorCondns = [
   check("name").notEmpty().escape().withMessage("Please provide name"),
   check("content")
+    .notEmpty()
     .escape()
     .isLength({ min: 20 })
     .withMessage("Content should be atleast 20 characters long"),

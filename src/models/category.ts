@@ -1,5 +1,4 @@
 import { Schema, model, Document } from "mongoose";
-import crypto from "crypto";
 
 export interface ICategory extends Document {
   name: string;

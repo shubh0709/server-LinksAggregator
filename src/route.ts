@@ -1,4 +1,5 @@
 import { Router } from "express";
+// controller
 import {
   authMiddleware,
   login,
@@ -9,6 +10,25 @@ import {
   validateSignIn,
 } from "./controller/auth";
 import {
+  createCategory,
+  listAllCategories,
+  readCategory,
+  removeCategory,
+  updateCategory,
+} from "./controller/category";
+import {
+  createLink,
+  listAllLinks,
+  listLinksOfCategory,
+  listUserPostedLinks,
+  readLink,
+  removeLink,
+  updateLink,
+} from "./controller/link";
+
+// validators
+import { runValidation } from "./validators";
+import {
   registerationValidatorCondns,
   loginValidatorCondns,
 } from "./validators/auth";
@@ -16,16 +36,14 @@ import {
   categoryCreateValidatorCondns,
   categoryUpdateValidatorCondns,
 } from "./validators/category";
-import { create } from "./controller/category";
-import { runValidation } from "./validators";
-import slugify from "slugify";
+import { linkCreateValidatorCondns } from "./validators/link";
 
 let router = Router();
 
+// auth
 router.post("/register", registerationValidatorCondns, runValidation, register);
 router.post("/login", loginValidatorCondns, runValidation, login);
 router.post("/verify/registerationToken", registerationToken);
-
 router.post("/admin", validateSignIn, validateAdmin, shareUserData);
 router.post("/subscriber", validateSignIn, authMiddleware, shareUserData);
 
@@ -36,18 +54,70 @@ router.post(
   runValidation,
   validateSignIn,
   validateAdmin,
-  create
+  createCategory
 );
-// router.get("/categories", list);
-// router.get("/category/:slug", read);
-// router.put(
-//   "/category/:slug",
-//   categoryUpdateValidatorCondns,
-//   runValidation,
-//   validateSignIn,
-//   validateAdmin,
-//   create
-// );
-// router.delete("/category/:slug", validateSignIn, validateAdmin, remove);
+router.get("/listCategories", listAllCategories);
+router.get("/category/:slug", readCategory);
+router.put(
+  "/category/:slug",
+  categoryUpdateValidatorCondns,
+  runValidation,
+  validateSignIn,
+  validateAdmin,
+  updateCategory
+);
+router.delete("/category/:slug", validateSignIn, validateAdmin, removeCategory);
+
+// link
+router.post(
+  "/createLink",
+  linkCreateValidatorCondns,
+  runValidation,
+  validateSignIn,
+  authMiddleware,
+  createLink
+);
+router.put(
+  "/link/:id",
+  runValidation,
+  validateSignIn,
+  authMiddleware,
+  updateLink
+);
+router.delete(
+  "/link/:id",
+  runValidation,
+  validateSignIn,
+  authMiddleware,
+  removeLink
+);
+router.get(
+  "/link/:id",
+  runValidation,
+  validateSignIn,
+  authMiddleware,
+  readLink
+);
+router.get(
+  "/links",
+  runValidation,
+  validateSignIn,
+  authMiddleware,
+  listUserPostedLinks
+);
+router.get(
+  "/links/:slug",
+  runValidation,
+  validateSignIn,
+  authMiddleware,
+  listLinksOfCategory
+);
+router.get(
+  "/links/all",
+  runValidation,
+  validateSignIn,
+  authMiddleware,
+  listAllLinks
+);
 
 export default router;
