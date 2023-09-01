@@ -86,7 +86,8 @@ export const listAllCategories = async (req: JwtRequest, res: Response) => {
 export const readCategory = async (req: JwtRequest, res: Response) => {
   try {
     const { slug } = req.params;
-    const category = categoryModel.findOne({ slug });
+    const category = await categoryModel.findOne({ slug });
+
     const data = await linkModel
       .find({ categories: category })
       .sort({ createdAt: -1 });
@@ -102,8 +103,11 @@ export const readCategory = async (req: JwtRequest, res: Response) => {
 
 export const removeCategory = async (req: JwtRequest, res: Response) => {
   try {
-    const { id } = req.body;
-    await categoryModel.findOneAndRemove({ _id: id });
+    console.log("reached removeCategory");
+    const { slug } = req.params;
+    await categoryModel.findOneAndRemove({ _id: slug });
+    console.log("delete category");
+    return res.json({ msg: "success" });
   } catch (error) {
     console.log(error);
     res.status(400).json({
@@ -141,8 +145,6 @@ export const updateCategory = async (req: JwtRequest, res: Response) => {
           );
         });
 
-
-
         // uploading new img
         const params = {
           Bucket: "link-aggregator",
@@ -170,19 +172,18 @@ export const updateCategory = async (req: JwtRequest, res: Response) => {
         oldData.image.key = data.Key;
       }
 
-        updatedCategoryData = categoryModel.updateOne(
-          { _id: oldData._id },
-          { name: oldData.name, content: oldData.content, image: oldData.image },
-          { new: true }
-        );
-    
+      updatedCategoryData = categoryModel.updateOne(
+        { _id: oldData._id },
+        { name: oldData.name, content: oldData.content, image: oldData.image },
+        { new: true }
+      );
     } else {
       throw new CustomError("category not found", 400);
     }
   } catch (error) {
-    if(error instanceof CustomError){
+    if (error instanceof CustomError) {
       res.status(error.statusCode).json({
-        msg: error.message
+        msg: error.message,
       });
     }
     console.log(error);

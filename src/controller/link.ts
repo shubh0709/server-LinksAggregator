@@ -39,6 +39,7 @@ export const listAllLinks = async function (
   next: NextFunction
 ) {
   try {
+    console.log("list all links reached");
     const data = await linkModel.find({});
     res.json(data);
   } catch (error) {

@@ -153,6 +153,7 @@ export const authMiddleware = async (
     req.profile = user;
     next();
   } catch (error) {
+    console.log("error at auth: ", error);
     if (error instanceof CustomError) {
       return res.status(error.statusCode).json({
         msg: error.message,
@@ -174,8 +175,11 @@ export const validateAdmin = async (
       throw new CustomError("Admin resource. Access denied.", 403);
     }
     req.profile = user;
+    console.log("going next");
     next();
   } catch (error) {
+    console.log("error at validateAdmin: ", error);
+
     if (error instanceof CustomError) {
       return res.status(error.statusCode).json({
         msg: error.message,

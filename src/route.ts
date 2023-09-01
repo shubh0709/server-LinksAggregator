@@ -106,18 +106,12 @@ router.get(
   listUserPostedLinks
 );
 router.get(
-  "/links/:slug",
+  "/categoryLinks/:slug",
   runValidation,
   validateSignIn,
   authMiddleware,
   listLinksOfCategory
 );
-router.get(
-  "/links/all",
-  runValidation,
-  validateSignIn,
-  authMiddleware,
-  listAllLinks
-);
+router.get("/allLinks", validateSignIn, validateAdmin, listAllLinks);
 
 export default router;

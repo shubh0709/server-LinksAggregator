@@ -20,6 +20,7 @@ export const linkSchema = new Schema<ILinks>(
       trim: true,
       required: true,
       max: 256,
+      unique: true,
     },
     url: {
       type: String,
